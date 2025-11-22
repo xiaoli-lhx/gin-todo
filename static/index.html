@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gin Todo Pro</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* 炫酷的渐变背景 */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 500px;
+        }
+        .todo-item {
+            transition: all 0.2s;
+            cursor: pointer;
+            border-left: 5px solid transparent;
+        }
+        .todo-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+        /* 未完成的状态条 */
+        .todo-pending {
+            border-left-color: #ffc107; 
+        }
+        /* 已完成的状态条 */
+        .todo-done {
+            border-left-color: #198754;
+            background-color: #f8f9fa;
+            opacity: 0.6;
+        }
+        .todo-done .todo-text {
+            text-decoration: line-through;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card p-4">
+        <h3 class="text-center mb-4 fw-bold text-primary">
+            <i class="fas fa-clipboard-list me-2"></i>待办事项
+        </h3>
+
+        <div class="input-group mb-4">
+            <input type="text" id="newTodo" class="form-control form-control-lg" placeholder="接下来要做什么？">
+            <button class="btn btn-primary btn-lg" onclick="createTodo()">
+                <i class="fas fa-plus"></i> 添加
+            </button>
+        </div>
+
+        <ul class="list-group list-group-flush" id="todoList">
+            </ul>
+        
+        <div class="mt-3 text-end text-muted small">
+            Gin + GORM + Bootstrap 提供动力 🚀
+        </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/sweetalert2/11.7.12/sweetalert2.all.min.js"></script>
+
+    <script>
+        const API_URL = "/todo"; // 相对路径，自动匹配当前域名
+
+        window.onload = fetchTodos;
+
+        // 1. 获取列表
+        async function fetchTodos() {
+            try {
+                const res = await fetch(API_URL);
+                const todos = await res.json();
+                render(todos);
+            } catch (err) {
+                showError("加载失败，请检查后端服务！");
+            }
+        }
+
+        // 2. 创建 Todo
+        async function createTodo() {
+            const input = document.getElementById("newTodo");
+            const title = input.value.trim();
+            if (!title) return Swal.fire('提示', '内容不能为空哦', 'warning');
+
+            try {
+                await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title: title })
+                });
+                input.value = "";
+                fetchTodos();
+                const sound = new Audio('https://www.soundjay.com/button/sounds/button-3.mp3'); // 可选：添加音效
+                sound.play().catch(()=>{}); 
+            } catch (err) {
+                showError("添加失败");
+            }
+        }
+
+        // 3. 切换状态
+        async function toggleTodo(id) {
+            await fetch(`${API_URL}/${id}`, { method: "PUT" });
+            fetchTodos();
+        }
+
+        // 4. 删除 Todo
+        async function deleteTodo(id, event) {
+            event.stopPropagation(); // 阻止冒泡，防止触发点击行
+            
+            // 使用漂亮的确认框
+            const result = await Swal.fire({
+                title: '确定删除吗?',
+                text: "删了就找不回来了!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: '狠心删除',
+                cancelButtonText: '留着吧'
+            });
+
+            if (result.isConfirmed) {
+                await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+                fetchTodos();
+                Swal.fire('已删除!', '该任务已移除', 'success');
+            }
+        }
+
+        // 渲染函数
+        function render(todos) {
+            const list = document.getElementById("todoList");
+            list.innerHTML = "";
+
+            if (todos.length === 0) {
+                list.innerHTML = `<div class="text-center text-muted py-4">
+                    <i class="fas fa-mug-hot fa-3x mb-3"></i><br>暂时没有任务，喝杯咖啡吧~
+                </div>`;
+                return;
+            }
+
+            todos.forEach(todo => {
+                const statusClass = todo.status ? "todo-done" : "todo-pending";
+                const icon = todo.status ? '<i class="fas fa-check-circle text-success"></i>' : '<i class="far fa-circle text-warning"></i>';
+                
+                const item = `
+                <li class="list-group-item todo-item d-flex justify-content-between align-items-center py-3 ${statusClass}" onclick="toggleTodo(${todo.id})">
+                    <div class="d-flex align-items-center">
+                        <span class="me-3 fs-5">${icon}</span>
+                        <span class="todo-text fw-bold">${todo.title}</span>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm rounded-circle" onclick="deleteTodo(${todo.id}, event)" title="删除">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </li>`;
+                list.innerHTML += item;
+            });
+        }
+
+        function showError(msg) {
+            Swal.fire('出错啦', msg, 'error');
+        }
+
+        // 支持按回车键添加
+        document.getElementById("newTodo").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") createTodo();
+        });
+    </script>
+</body>
+</html>
