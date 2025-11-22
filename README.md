@@ -19,7 +19,7 @@
 - **后端核心**
   - 使用 **Gin** 框架构建高性能 RESTful API。
   - 使用 **GORM** 进行 MySQL 数据库交互（自动建表、CRUD）。
-  - 采用 **CLD (Controller-Logic-Data)** 分层架构，代码结构清晰。
+  - 采用 **MVC** 分层架构，代码结构清晰。
   - 集成 **Viper** 读取 YAML 配置文件，实现配置与代码分离。
   - 统一的错误处理与 JSON 响应格式。
 
